@@ -40,3 +40,9 @@ mp305a-cli --json status
 `--json` 为成功返回 `ok` 和 `data`，为运行失败返回 `ok` 和 `error`。参数语法错误由命令行解析器通过 stderr 报告。
 
 协议和验收条件见 [项目需求文档](docs/mp305a-cli%20%E9%9C%80%E6%B1%82%E6%96%87%E6%A1%A3.md)。
+
+## 项目资料
+
+- [Agent 调用说明](AGENTS.md)
+- [更新日志](CHANGELOG.md)
+- [MIT 许可证](LICENSE)
