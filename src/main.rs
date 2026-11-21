@@ -8,7 +8,7 @@ use std::fs::{File, OpenOptions};
 use std::time::{Duration, Instant};
 
 #[derive(Parser)]
-#[command(version, about = "Control an ISDT MP305A over USB HID")]
+#[command(version, about = "Control an ISDT MP305A or MP305B over USB HID")]
 struct Cli {
     #[arg(long, global = true)]
     json: bool,
@@ -111,12 +111,26 @@ fn request(device: &HidDevice, command: u8, data: &[u8]) -> Result<Vec<u8>> {
 
 fn info(device: &HidDevice) -> Result<Value> {
     let data = request(device, 0xe0, &[])?;
+    parse_info(&data)
+}
+
+fn supported_model(model: &str) -> bool {
+    matches!(model, "MP305A" | "MP305B")
+}
+
+fn hid_candidate(vid: u16, pid: u16, page: u16, usage: u16, product: Option<&str>) -> bool {
+    vid == 0x28e9
+        && (pid == 0x028a || (page == 1 && usage == 4)
+            || product.is_some_and(|name| supported_model(name.trim())))
+}
+
+fn parse_info(data: &[u8]) -> Result<Value> {
     if data.len() < 30 {
         return Err(error("invalid_report", "hardware information is truncated"));
     }
     let model = String::from_utf8_lossy(&data[20..30]).trim_end_matches('\0').to_owned();
-    if model != "MP305A" {
-        return Err(error("unsupported_device", format!("expected MP305A, received {model}")));
+    if !supported_model(&model) {
+        return Err(error("unsupported_device", format!("expected MP305A or MP305B, received {model}")));
     }
     let version = |offset: usize| {
         data[offset..offset + 4].iter().map(u8::to_string).collect::<Vec<_>>().join(".")
@@ -176,10 +190,16 @@ struct Limits {
     max_current_a: String,
 }
 
-fn check_limits(id: &str, (v, a): (u16, u16)) -> Result<()> {
+fn check_limits(id: &str, model: &str, (v, a): (u16, u16)) -> Result<()> {
     let path = std::env::current_exe().map_err(|e| error("invalid_limits", e))?
-        .with_file_name("mp305a-limits.json");
-    let bytes = std::fs::read(&path)
+        .with_file_name("mp305-limits.json");
+    let bytes = std::fs::read(&path).or_else(|e| {
+        if e.kind() == std::io::ErrorKind::NotFound && model == "MP305A" {
+            let legacy = path.with_file_name("mp305a-limits.json");
+            return std::fs::read(legacy);
+        }
+        Err(e)
+    })
         .map_err(|e| error("invalid_limits", format!("{}: {e}", path.display())))?;
     let limits: Limits = serde_json::from_slice(&bytes).map_err(|e| error("invalid_limits", e))?;
     if limits.device_id != id {
@@ -211,7 +231,7 @@ fn state_unknown(e: Error) -> Error {
     error("state_unknown", format!("{}: {}. Verify the output on the front panel.", e.0, e.1))
 }
 
-fn change(device: &HidDevice, id: &str, command: &Command) -> Result<Value> {
+fn change(device: &HidDevice, id: &str, model: &str, command: &Command) -> Result<Value> {
     let previous = State::read(device)?;
     previous.dc_only()?;
     let (settings, flags, output) = match *command {
@@ -227,7 +247,7 @@ fn change(device: &HidDevice, id: &str, command: &Command) -> Result<Value> {
     };
     let turning_off = matches!(command, Command::Off);
     if !turning_off {
-        check_limits(id, settings)?;
+        check_limits(id, model, settings)?;
     }
     if flags == 0 && previous.output() == output {
         return Ok(previous.json());
@@ -248,6 +268,7 @@ fn change(device: &HidDevice, id: &str, command: &Command) -> Result<Value> {
 }
 
 fn lock() -> Result<File> {
+    // Share the lock with earlier mp305a-cli builds.
     let path = std::env::temp_dir().join("mp305a-cli-usb.lock");
     let file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(path)
         .map_err(|e| error("lock_failed", e))?;
@@ -257,9 +278,10 @@ fn lock() -> Result<File> {
 
 fn run(cli: &Cli) -> Result<Value> {
     let api = HidApi::new().map_err(|e| error("usb_access", e))?;
-    let devices: Vec<_> = api.device_list().filter(|device|
-        device.vendor_id() == 0x28e9 && device.product_id() == 0x028a
-    ).collect();
+    let devices: Vec<_> = api.device_list().filter(|device| hid_candidate(
+        device.vendor_id(), device.product_id(), device.usage_page(),
+        device.usage(), device.product_string(),
+    )).collect();
     if matches!(cli.command, Command::List) {
         return Ok(json!(devices.iter().map(|device| json!({"id": device_id(device),
             "product": device.product_string(), "usage_page": device.usage_page(),
@@ -270,14 +292,15 @@ fn run(cli: &Cli) -> Result<Value> {
         (None, [device]) => Some(*device),
         (None, []) => None,
         _ => return Err(error("multiple_devices", "run list, then specify --device <id>")),
-    }.ok_or_else(|| error("device_not_found", "requested MP305A HID interface was not found"))?;
+    }.ok_or_else(|| error("device_not_found", "requested MP305 HID interface was not found"))?;
     let _lock = lock()?;
     let device = selected.open_device(&api).map_err(|e| error("usb_access", e))?;
     let identity = info(&device)?;
     match cli.command {
         Command::Info => Ok(identity),
         Command::Status => Ok(State::read(&device)?.json()),
-        _ => change(&device, &device_id(selected), &cli.command),
+        _ => change(&device, &device_id(selected), identity["model"].as_str()
+            .expect("parse_info returns a validated model"), &cli.command),
     }
 }
 
@@ -305,6 +328,21 @@ fn main() -> std::process::ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn recognizes_both_models_and_rejects_other_devices() {
+        for model in ["MP305A", "MP305B"] {
+            let mut data = [0; 30];
+            data[20..26].copy_from_slice(model.as_bytes());
+            assert_eq!(parse_info(&data).unwrap()["model"], model);
+        }
+        assert_eq!(parse_info(&[0; 30]).unwrap_err().0, "unsupported_device");
+        assert!(hid_candidate(0x28e9, 0x028a, 1, 0, None));
+        assert!(hid_candidate(0x28e9, 0xffff, 1, 4, None));
+        assert!(hid_candidate(0x28e9, 0xffff, 0, 0, Some("MP305B")));
+        assert!(!hid_candidate(0x1234, 0x028a, 1, 4, Some("MP305B")));
+        assert!(!hid_candidate(0x28e9, 0xffff, 0, 0, Some("Other device")));
+    }
 
     #[test]
     fn setpoints_cannot_round_up_or_exceed_device_limits() {

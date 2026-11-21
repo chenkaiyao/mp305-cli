@@ -1,10 +1,10 @@
-# mp305a-cli
+# mp305-cli
 
 **简体中文** · [English](README.en.md)
 
 [![CI](https://github.com/chenkaiyao/mp305a-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chenkaiyao/mp305a-cli/actions/workflows/ci.yml?query=branch%3Amain)
 
-**面向 Agent 的 ISDT MP305A 电源命令行工具。** Agent 在连接电源的本机通过 USB HID 调用，读取电压、电流和输出状态，按工位批准的参数设置直流输出，并通过设备回读确认结果。
+**面向 Agent 的 ISDT MP305A / MP305B 电源命令行工具。** Agent 在连接电源的本机通过 USB HID 调用，读取电压、电流和输出状态，按工位批准的参数设置直流输出，并通过设备回读确认结果。
 
 ![ISDT MP305A 电源，展示显示屏、旋钮和输出接口](docs/mp305a.png)
 
@@ -14,12 +14,12 @@
 
 ## Agent 快速开始
 
-Agent 应先阅读 [AGENTS.md](AGENTS.md)。在连接 MP305A 的 Windows 主机上，从仓库根目录调用已构建的 EXE。
+Agent 应先阅读 [AGENTS.md](AGENTS.md)。在连接 MP305A 或 MP305B 的 Windows 主机上，从仓库根目录调用已构建的 EXE。
 
 ```powershell
-.\target\release\mp305a-cli.exe --json list
-.\target\release\mp305a-cli.exe --json info
-.\target\release\mp305a-cli.exe --json status
+.\target\release\mp305-cli.exe --json list
+.\target\release\mp305-cli.exe --json info
+.\target\release\mp305-cli.exe --json status
 ```
 
 连接一台时自动选择。连接多台时，从 `list` 获取 ID，并为后续命令加上 `--device <id>`。ID 根据本机 HID 路径生成，换端口或换电脑后可能变化。
@@ -30,7 +30,7 @@ Agent 应同时检查退出码为 `0` 和 JSON 中的 `ok: true`，再读取 `da
 
 ## 控制输出
 
-负责人在 EXE 同目录维护 `mp305a-limits.json`，填写以下字段。部署时应通过文件权限限制修改者，并在更换被测硬件后核对上限。
+负责人在 EXE 同目录维护 `mp305-limits.json`，填写以下字段。部署时应通过文件权限限制修改者，并在更换被测硬件后核对上限。旧版 MP305A 的 `mp305a-limits.json` 在新版配置缺失时仍可使用。
 
 | 字段 | 说明 |
 | --- | --- |
@@ -53,11 +53,11 @@ cargo test --locked
 cargo build --release --locked
 ```
 
-Windows 发布产物位于 `target\release\mp305a-cli.exe`。Linux 和 macOS 产物为 `target/release/mp305a-cli`。Ubuntu 本地构建需要 `libudev-dev` 和 `pkg-config`。
+Windows 发布产物位于 `target\release\mp305-cli.exe`。Linux 和 macOS 产物为 `target/release/mp305-cli`。Ubuntu 本地构建需要 `libudev-dev` 和 `pkg-config`。
 
-顶部徽章显示 GitHub Actions 在 `main` 上的 CI 状态。CI 在 Windows、Linux 和 macOS 上执行单元测试、发布构建与版本命令检查。实机 USB 验收单独进行，目前已验证 Windows x64 上的设备枚举、只读查询和缺少限值时的上电拒绝。
+顶部徽章显示 GitHub Actions 在 `main` 上的 CI 状态。CI 在 Windows、Linux 和 macOS 上执行单元测试、发布构建与版本命令检查。实机 USB 验收单独进行，目前已验证 Windows x64 上 MP305A 的设备枚举、只读查询和缺少限值时的上电拒绝。MP305B 按共用协议实现，实机验收待完成。
 
-协议和验收条件见 [项目需求文档](docs/mp305a-cli%20%E9%9C%80%E6%B1%82%E6%96%87%E6%A1%A3.md)。
+协议和验收条件见 [项目需求文档](docs/mp305-cli%20%E9%9C%80%E6%B1%82%E6%96%87%E6%A1%A3.md)。
 
 ## 项目资料
 

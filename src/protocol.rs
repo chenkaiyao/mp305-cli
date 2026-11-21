@@ -24,7 +24,9 @@ pub fn encode(command: u8, data: &[u8]) -> [u8; REPORT_SIZE] {
 }
 
 pub fn decode(report: &[u8]) -> Result<(u8, Vec<u8>), &'static str> {
-    if report.len() < 7 || report[0] != 2 || report[2] != MARKER || report[3] != 0x21 {
+    if report.len() < 7 || !matches!(report[0], 1 | 2)
+        || report[2] != MARKER || report[3] != 0x21
+    {
         return Err("unexpected HID response header");
     }
     let end = usize::from(report[1]) + 2;
@@ -67,6 +69,11 @@ mod tests {
         let (command, data) = decode(&capture).unwrap();
         assert_eq!(command, 0xc3);
         assert_eq!(&data[5..11], &[0x60, 9, 0, 0, 0x88, 0x13]);
+        let mut alternate = capture;
+        alternate[0] = 1;
+        assert_eq!(decode(&alternate).unwrap(), (command, data));
+        alternate[0] = 3;
+        assert!(decode(&alternate).is_err());
         let mut invalid = capture;
         invalid[10] = 1;
         assert!(decode(&invalid).is_err());

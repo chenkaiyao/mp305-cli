@@ -1,5 +1,5 @@
 [package]
-name = "mp305a-cli"
+name = "mp305-cli"
 version = "0.9.0"
 edition = "2021"
 license = "MIT"
