@@ -260,11 +260,20 @@ fn change(device: &HidDevice, id: &str, model: &str, command: &Command) -> Resul
     }
     let settings = if turning_off { latest.settings() } else { settings };
     control(device, &latest, 1, settings, flags, output).map_err(state_unknown)?;
-    let after = State::read(device).map_err(state_unknown)?;
-    if after.output() != output || after.settings() != settings || after.0[25] != 0 {
-        return Err(error("verification_failed", format!("unexpected readback: {}", after.json())));
+    // The device can acknowledge a write before the status frame reflects it.
+    // Retry readback only, so a single invocation never re-applies a control write.
+    let mut after = State::read(device).map_err(state_unknown)?;
+    for attempt in 0..=5 {
+        if after.output() == output && after.settings() == settings && after.0[25] == 0 {
+            return Ok(after.json());
+        }
+        if attempt == 5 || after.0[25] != 0 {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+        after = State::read(device).map_err(state_unknown)?;
     }
-    Ok(after.json())
+    Err(error("verification_failed", format!("unexpected readback: {}", after.json())))
 }
 
 fn lock() -> Result<File> {
