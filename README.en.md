@@ -32,6 +32,8 @@ Check for exit code `0` and `ok: true` in the JSON response before using `data`.
 
 The bench operator maintains `mp305-limits.json` next to the executable. Restrict write access to authorized operators and check the limits whenever the device under test changes. MP305A can still use the legacy `mp305a-limits.json` when the new file is absent.
 
+The CLI looks for the file alongside the executable that is actually running. For local development, place it in `target/release/`. For regular bench use, keep the executable and configuration together in a fixed directory on the bench host, such as `D:\tools\mp305-cli\`, and add that directory to `PATH`. This lets multiple projects share the bench configuration and keeps it outside the files removed by `cargo clean`. Keep the actual configuration on the bench host.
+
 | Field | Description |
 | --- | --- |
 | `device_id` | Power supply ID returned by `list`. The CLI checks this ID. The bench operator must confirm which hardware is attached to the output. |
