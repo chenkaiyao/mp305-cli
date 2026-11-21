@@ -22,11 +22,11 @@ Agent 应先阅读 [AGENTS.md](AGENTS.md)。在连接 MP305A 或 MP305B 的 Wind
 .\target\release\mp305-cli.exe --json status
 ```
 
-连接一台时自动选择。连接多台时，从 `list` 获取 ID，并为后续命令加上 `--device <id>`。ID 根据本机 HID 路径生成，换端口或换电脑后可能变化。
+`list` 返回匹配的 USB HID 候选，无候选时返回空列表。只有一个候选时自动选择；有多个时，从 `list` 获取 ID，并为后续命令加上 `--device <id>`。实际型号以 `info` 的 `model` 字段为准。ID 根据本机 HID 路径生成，换端口或换电脑后可能变化。
 
 Agent 应同时检查退出码为 `0` 和 JSON 中的 `ok: true`，再读取 `data`。失败时读取 `error.code` 和 `error.message`。参数语法错误由命令行解析器通过 stderr 报告。
 
-区分 `voltage_v`、`current_a` 两个实测值，与 `set_voltage_v`、`current_limit_a` 两个设定值。用 `output_enabled` 确认输出状态。
+`status` 返回实测电压 `voltage_v`、电流 `current_a` 和功率 `power_w`，以及设定电压 `set_voltage_v` 和限流 `current_limit_a`。用 `output_enabled` 确认输出开关，`mode: 0` 表示直流模式。
 
 ## 控制输出
 
@@ -34,17 +34,17 @@ Agent 应同时检查退出码为 `0` 和 JSON 中的 `ok: true`，再读取 `da
 
 | 字段 | 说明 |
 | --- | --- |
-| `device_id` | `list` 返回的目标设备 ID。 |
+| `device_id` | `list` 返回的目标电源 ID。CLI 用它核对电源身份，工位负责人仍需确认实际连接的被测硬件。 |
 | `max_voltage_v` | 被测硬件允许的最高电压，使用十进制字符串。 |
 | `max_current_a` | 被测硬件允许的最大电流，使用十进制字符串。 |
 
 - `set --voltage <V> --current <A>` 在输出关闭时更新两项设定值。电压最多两位小数，限流最多三位小数。
-- `on` 使用当前设定值。设备必须处于直流模式，且上限配置有效。
+- `on` 使用当前设定值。设备必须处于直流模式，且设定值必须在有效配置的上限内。
 - `off` 关闭直流输出，保护配置缺失时仍可调用。其他模式请使用前面板。
 
-每次写入都会回读确认。控制流程取得远程控制后，按设备面板提示恢复本地操作。
+执行写入后，CLI 回读确认设定值和输出状态。若输出已处于目标开关状态，`on` 或 `off` 可直接返回读到的状态。控制流程取得远程控制后，按设备面板提示恢复本地操作。
 
-Agent 只在用户授权实机操作时执行写入，电压和限流必须来自用户指定值或已批准的测试配置。收到 `state_unknown` 或 `verification_failed` 后停止后续写入，通过前面板确认实际状态。
+Agent 只在用户授权实机操作时执行写入，电压和限流必须来自用户指定值或已批准的测试配置。收到 `state_unknown` 或 `verification_failed` 后停止后续写入，通过前面板确认实际状态。收到 `state_changed` 时重新查询，确认设定值和输出状态后再决定如何处理。
 
 ## 构建与 CI
 

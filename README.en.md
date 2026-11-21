@@ -22,11 +22,11 @@ Read [AGENTS.md](AGENTS.md) before operating the power supply. On the Windows ho
 .\target\release\mp305-cli.exe --json status
 ```
 
-The CLI selects a single connected device automatically. If multiple devices are connected, use the ID from `list` with `--device <id>` on subsequent commands. The ID is derived from the local HID path and may change when you switch USB ports or hosts.
+`list` returns matching USB HID candidates, or an empty array when none are found. The CLI selects a single candidate automatically. If there are multiple candidates, use the ID from `list` with `--device <id>` on subsequent commands. Confirm the actual model in the `model` field returned by `info`. The ID is derived from the local HID path and may change when you switch USB ports or hosts.
 
 Check for exit code `0` and `ok: true` in the JSON response before using `data`. On failure, read `error.code` and `error.message`. Command-line syntax errors are reported on stderr.
 
-`voltage_v` and `current_a` are measured values. `set_voltage_v` and `current_limit_a` are setpoints. Use `output_enabled` to confirm the output state.
+`status` reports measured voltage (`voltage_v`), current (`current_a`), and power (`power_w`), alongside the voltage setpoint (`set_voltage_v`) and current limit (`current_limit_a`). Use `output_enabled` to confirm the output state. `mode: 0` means DC mode.
 
 ## Control the output
 
@@ -34,17 +34,17 @@ The bench operator maintains `mp305-limits.json` next to the executable. Restric
 
 | Field | Description |
 | --- | --- |
-| `device_id` | Target device ID returned by `list`. |
+| `device_id` | Power supply ID returned by `list`. The CLI checks this ID. The bench operator must confirm which hardware is attached to the output. |
 | `max_voltage_v` | Maximum voltage allowed by the device under test, as a decimal string. |
 | `max_current_a` | Maximum current allowed by the device under test, as a decimal string. |
 
 - `set --voltage <V> --current <A>` updates both setpoints while the output is off. Voltage accepts up to two decimal places and current up to three.
-- `on` enables output using the current setpoints. The supply must be in DC mode with a valid limits file.
+- `on` enables output using the current setpoints. The supply must be in DC mode, and the setpoints must be within the limits in a valid configuration.
 - `off` disables DC output and works without a limits file. Use the front panel in other modes.
 
-The CLI reads the state back after each write. Follow the device's front-panel prompt to resume local operation after remote control.
+After a write, the CLI reads back the setpoints and output state. If output is already in the requested state, `on` or `off` can return the existing state without writing. Follow the front-panel prompt to resume local operation after remote control.
 
-Agents may write only when the user authorizes hardware operation. Use voltage and current values specified by the user or an approved test configuration. If the CLI returns `state_unknown` or `verification_failed`, stop further writes and confirm the actual state on the front panel.
+Agents may write only when the user authorizes hardware operation. Use voltage and current values specified by the user or an approved test configuration. If the CLI returns `state_unknown` or `verification_failed`, stop further writes and confirm the actual state on the front panel. On `state_changed`, read the current setpoints and output state before deciding how to proceed.
 
 ## Build and CI
 
