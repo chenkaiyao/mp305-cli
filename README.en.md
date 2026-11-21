@@ -2,7 +2,7 @@
 
 [简体中文](README.md) · **English**
 
-[![CI](https://github.com/chenkaiyao/mp305a-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chenkaiyao/mp305a-cli/actions/workflows/ci.yml?query=branch%3Amain)
+[![CI](https://github.com/chenkaiyao/mp305-cli/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chenkaiyao/mp305-cli/actions/workflows/ci.yml?query=branch%3Amain)
 
 **A command-line tool for agents working with ISDT MP305A and MP305B bench power supplies.** Run it on the host connected to the power supply over USB HID. Agents can read voltage, current, and output state, set approved DC output values, and verify changes by reading the device state back.
 
