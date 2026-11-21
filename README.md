@@ -4,9 +4,11 @@
 
 **面向 Agent 的 ISDT MP305A 电源命令行工具。** Agent 在连接电源的本机通过 USB HID 调用，读取电压、电流和输出状态，按工位批准的参数设置直流输出，并通过设备回读确认结果。
 
-![ISDT MP305A 与 MP305B 电源外观和接口对比](https://www.isdt.co/wp-content/uploads/2026/01/MP305-14-2.png)
+![ISDT MP305 电源正面面板，画面右侧可见显示屏、旋钮和输出接口](https://www.isdt.co/wp-content/uploads/2025/12/MP305-9.png)
 
-图片来源为 [ISDT 官方 MP305 产品页](https://www.isdt.co/mp305.html)。
+MP305A 的正面面板见上图。图片来源为 [ISDT 官方 MP305 产品页](https://www.isdt.co/mp305.html)。
+
+![ISDT MP305A 与 MP305B 背部接口对比，MP305A 位于左侧](https://www.isdt.co/wp-content/uploads/2025/12/MP305-5.png)
 
 ## Agent 快速开始
 
